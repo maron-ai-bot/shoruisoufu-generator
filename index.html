@@ -825,30 +825,58 @@ function downloadWord() {
     });
   }
 
-  // === A4一枚に収めるための動的サイズ計算 ===
+  // === A4一枚に動的フィット ===
+  // フォントは常に10.5pt、余白20mm固定。スペーサーを動的計算してA4を埋める。
+  // 本当に溢れるときだけフォント縮小。
   const docCount = selectedDocList.length;
   const hasRemarks = remarks.trim().length > 0;
-  // コンテンツ量に応じてフォント・行間・余白を段階的に調整
-  let baseFontSize, titleFontSize, lineHeight, marginMm, spacerHeight;
 
-  // 余白は一般的なビジネス文書基準（上下20mm、左右20mm）
-  if (docCount <= 3 && !hasRemarks) {
-    // 少量：適度なゆとり
-    baseFontSize = '10.5pt'; titleFontSize = '14pt'; lineHeight = '1.7';
-    marginMm = '20mm 20mm 20mm 20mm'; spacerHeight = '8pt';
-  } else if (docCount <= 6) {
-    // 中量：標準
-    baseFontSize = '10.5pt'; titleFontSize = '13pt'; lineHeight = '1.6';
-    marginMm = '20mm 20mm 20mm 20mm'; spacerHeight = '6pt';
-  } else if (docCount <= 10) {
-    // 多め：コンパクト
-    baseFontSize = '10pt'; titleFontSize = '12pt'; lineHeight = '1.4';
-    marginMm = '18mm 20mm 18mm 20mm'; spacerHeight = '4pt';
-  } else {
-    // 大量：最小
-    baseFontSize = '9pt'; titleFontSize = '11pt'; lineHeight = '1.2';
-    marginMm = '15mm 18mm 15mm 18mm'; spacerHeight = '2pt';
+  // 基本設定
+  let baseFontPt = 10.5;
+  let titleFontPt = 14;
+  let lineH = 1.6;
+  let marginTopMm = 20, marginBottomMm = 20, marginLRMm = 20;
+
+  // コンテンツの推定行数（1行 ≈ baseFontPt * lineH pt）
+  const lineHPt = baseFontPt * lineH; // ≈ 16.8pt per line
+  const recipientLineCount = recipientLines.length || 1;
+  const senderLineCount = senderLines.length || 1;
+  const fixedLines = 1 + recipientLineCount + senderLineCount + 1 + 2 + 1 + 1 + 1; // 日付,宛先,送付元,タイトル,挨拶2行,敬具,記,以上
+  const docLines = docCount;
+  const remarkLines = hasRemarks ? Math.ceil(remarks.length / 40) + 1 : 0;
+  const totalContentLines = fixedLines + docLines + remarkLines;
+  const totalContentPt = totalContentLines * lineHPt + titleFontPt * 1.2; // タイトルは大きいフォント
+
+  // A4印刷領域の高さ (pt): (297 - marginTop - marginBottom) mm → pt (1mm ≈ 2.835pt)
+  const printHeightPt = (297 - marginTopMm - marginBottomMm) * 2.835; // ≈ 729pt
+
+  // スペーサー数: 日付後,宛先後,送付元後,タイトル後,敬具後,記後,書類後 = 7箇所
+  const spacerCount = 7;
+  let remainingPt = printHeightPt - totalContentPt;
+
+  // 溢れる場合はフォント縮小
+  if (remainingPt < spacerCount * 2) {
+    // フォント縮小で対応
+    if (totalContentLines <= 25) {
+      baseFontPt = 10; titleFontPt = 13; lineH = 1.5;
+    } else {
+      baseFontPt = 9; titleFontPt = 12; lineH = 1.3;
+      marginTopMm = 15; marginBottomMm = 15; marginLRMm = 18;
+    }
+    const newLineHPt = baseFontPt * lineH;
+    const newContentPt = totalContentLines * newLineHPt + titleFontPt * 1.2;
+    const newPrintPt = (297 - marginTopMm - marginBottomMm) * 2.835;
+    remainingPt = newPrintPt - newContentPt;
   }
+
+  // スペーサー高さ = 残りスペースをスペーサー数で均等割り（最小2pt、最大40pt）
+  let spacerPt = Math.max(2, Math.min(40, Math.floor(remainingPt / spacerCount)));
+
+  const baseFontSize = baseFontPt + 'pt';
+  const titleFontSize = titleFontPt + 'pt';
+  const lineHeight = String(lineH);
+  const marginMm = `${marginTopMm}mm ${marginLRMm}mm ${marginBottomMm}mm ${marginLRMm}mm`;
+  const spacerHeight = spacerPt + 'pt';
 
   // Remarks
   let remarksHtml = '';
