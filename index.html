@@ -307,6 +307,11 @@
 
     <div class="form-section">
       <div class="form-section-title">送付先</div>
+      <div class="sender-select-row">
+        <select id="recipientSelect" onchange="onRecipientSelect()">
+          <option value="">-- テンプレートから選択（または直接入力）--</option>
+        </select>
+      </div>
       <div class="form-group">
         <label>会社名・事務所名</label>
         <input type="text" id="recipientCompany" placeholder="例：株式会社〇〇">
@@ -391,10 +396,23 @@
 <script>
 // === Storage keys (shared with settings.html) ===
 const SENDERS_KEY = 'soufujou_senders';
+const RECIPIENTS_KEY = 'soufujou_recipients';
 const PARTS_KEY = 'soufujou_parts';
 const DEFAULT_SENDER_KEY = 'soufujou_default_sender';
+const DEFAULT_RECIPIENT_KEY = 'soufujou_default_recipient';
 const GREETINGS_KEY = 'soufujou_greetings';
 const DEFAULT_GREETING_KEY = 'soufujou_default_greeting';
+
+const DEFAULT_RECIPIENTS = [
+  { id: 'recipient_default_1', tplName: '株式会社サンプル商事',
+    company: '株式会社サンプル商事', dept: '総務部', name: '山田 太郎', title: '様' }
+];
+
+const DEFAULT_SENDERS_LIST = [
+  { id: 'sender_default_1', tplName: 'サンプル法律事務所',
+    company: 'サンプル法律事務所', address: '東京都千代田区丸の内1-1-1',
+    tel: '03-1234-5678', fax: '03-1234-5679', senderName: '弁護士 サンプル太郎' }
+];
 
 const DEFAULT_PARTS = [
   '委任契約書', '委任状', '着手金請求書', '報酬金請求書',
@@ -416,8 +434,22 @@ const DEFAULT_GREETINGS = [
 
 function loadSenders() {
   const d = localStorage.getItem(SENDERS_KEY);
-  return d ? JSON.parse(d) : [];
+  if (!d) {
+    localStorage.setItem(SENDERS_KEY, JSON.stringify(DEFAULT_SENDERS_LIST));
+    localStorage.setItem(DEFAULT_SENDER_KEY, DEFAULT_SENDERS_LIST[0].id);
+    return [...DEFAULT_SENDERS_LIST];
+  }
+  return JSON.parse(d);
 }
+function loadRecipients() {
+  const d = localStorage.getItem(RECIPIENTS_KEY);
+  if (!d) {
+    localStorage.setItem(RECIPIENTS_KEY, JSON.stringify(DEFAULT_RECIPIENTS));
+    return [...DEFAULT_RECIPIENTS];
+  }
+  return JSON.parse(d);
+}
+function getDefaultRecipientId() { return localStorage.getItem(DEFAULT_RECIPIENT_KEY) || ''; }
 function loadParts() {
   const d = localStorage.getItem(PARTS_KEY);
   if (!d) { localStorage.setItem(PARTS_KEY, JSON.stringify(DEFAULT_PARTS)); return [...DEFAULT_PARTS]; }
@@ -439,6 +471,7 @@ let selectedDocList = []; // [{name, qty}]
 // === Init ===
 function init() {
   initDate();
+  loadRecipientSelect();
   loadSenderSelect();
   loadGreetingSelect();
   buildDocBlocks();
@@ -456,6 +489,42 @@ function initDate() {
   const t = new Date();
   document.getElementById('sendDate').value =
     `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+}
+
+// === Recipient ===
+function loadRecipientSelect() {
+  const sel = document.getElementById('recipientSelect');
+  const recipients = loadRecipients();
+  const defaultId = getDefaultRecipientId();
+
+  sel.innerHTML = '<option value="">-- テンプレートから選択（または直接入力）--</option>';
+  recipients.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.id;
+    opt.textContent = r.tplName || r.company;
+    sel.appendChild(opt);
+  });
+
+  // Auto-select default
+  if (defaultId) {
+    sel.value = defaultId;
+    onRecipientSelect();
+  }
+}
+
+function onRecipientSelect() {
+  const id = document.getElementById('recipientSelect').value;
+  const recipients = loadRecipients();
+  const r = recipients.find(x => x.id === id);
+
+  if (r) {
+    document.getElementById('recipientCompany').value = r.company || '';
+    document.getElementById('recipientDept').value = r.dept || '';
+    document.getElementById('recipientName').value = r.name || '';
+    document.getElementById('recipientTitle').value = r.title || '様';
+  }
+  // テンプレート未選択でも直接入力を消さない
+  updatePreview();
 }
 
 // === Sender ===
@@ -710,6 +779,7 @@ window.addEventListener('resize', autoScalePaper);
 
 // === Reset ===
 function resetForm() {
+  document.getElementById('recipientSelect').value = '';
   document.getElementById('recipientCompany').value = '';
   document.getElementById('recipientDept').value = '';
   document.getElementById('recipientName').value = '';

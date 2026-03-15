@@ -275,6 +275,57 @@
     </details>
   </div>
 
+  <!-- 送付先テンプレート -->
+  <div class="card">
+    <div class="card-title">送付先テンプレート</div>
+    <p style="font-size:13px; color:#718096; margin-bottom:16px;">
+      よく送付する宛先を登録しておくと、作成画面でドロップダウンから選択できます。直接入力も引き続き可能です。
+    </p>
+
+    <div class="template-list" id="recipientList">
+      <!-- JS で生成 -->
+    </div>
+
+    <details id="recipientFormDetails">
+      <summary style="cursor:pointer; font-size:14px; font-weight:600; color:#2563eb; margin-bottom:12px;">
+        ＋ 新しい送付先を登録
+      </summary>
+      <div style="margin-top:12px; padding:16px; border:1px solid #e2e8f0; border-radius:8px;">
+        <input type="hidden" id="editRecipientId" value="">
+        <div class="form-group">
+          <label>テンプレート名（管理用）</label>
+          <input type="text" id="rcpTplName" placeholder="例：株式会社〇〇、佐藤先生">
+        </div>
+        <div class="form-group">
+          <label>会社名・事務所名</label>
+          <input type="text" id="rcpCompany" placeholder="例：株式会社〇〇">
+        </div>
+        <div class="form-group">
+          <label>部署名（任意）</label>
+          <input type="text" id="rcpDept" placeholder="例：総務部">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>担当者名</label>
+            <input type="text" id="rcpName" placeholder="例：山田 太郎">
+          </div>
+          <div class="form-group">
+            <label>敬称</label>
+            <select id="rcpTitle" style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;">
+              <option value="様">様</option>
+              <option value="御中">御中</option>
+              <option value="先生">先生</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:16px;">
+          <button class="btn btn-primary" onclick="saveRecipient()">保存</button>
+          <button class="btn btn-outline" onclick="cancelRecipientEdit()">キャンセル</button>
+        </div>
+      </div>
+    </details>
+  </div>
+
   <!-- 挨拶文テンプレート -->
   <div class="card">
     <div class="card-title">挨拶文テンプレート</div>
@@ -336,10 +387,25 @@
 <script>
 // === Storage keys ===
 const SENDERS_KEY = 'soufujou_senders';
+const RECIPIENTS_KEY = 'soufujou_recipients';
 const PARTS_KEY = 'soufujou_parts';
 const DEFAULT_SENDER_KEY = 'soufujou_default_sender';
+const DEFAULT_RECIPIENT_KEY = 'soufujou_default_recipient';
 const GREETINGS_KEY = 'soufujou_greetings';
 const DEFAULT_GREETING_KEY = 'soufujou_default_greeting';
+
+// === Default recipients ===
+const DEFAULT_RECIPIENTS = [
+  { id: 'recipient_default_1', tplName: '株式会社サンプル商事',
+    company: '株式会社サンプル商事', dept: '総務部', name: '山田 太郎', title: '様' }
+];
+
+// === Default senders ===
+const DEFAULT_SENDERS_LIST = [
+  { id: 'sender_default_1', tplName: 'サンプル法律事務所',
+    company: 'サンプル法律事務所', address: '東京都千代田区丸の内1-1-1',
+    tel: '03-1234-5678', fax: '03-1234-5679', senderName: '弁護士 サンプル太郎' }
+];
 
 // === Default greetings ===
 const DEFAULT_GREETINGS = [
@@ -373,10 +439,32 @@ const DEFAULT_PARTS = [
 // === Load / Save helpers ===
 function loadSenders() {
   const data = localStorage.getItem(SENDERS_KEY);
-  return data ? JSON.parse(data) : [];
+  if (!data) {
+    localStorage.setItem(SENDERS_KEY, JSON.stringify(DEFAULT_SENDERS_LIST));
+    localStorage.setItem(DEFAULT_SENDER_KEY, DEFAULT_SENDERS_LIST[0].id);
+    return [...DEFAULT_SENDERS_LIST];
+  }
+  return JSON.parse(data);
 }
 function saveSenders(list) {
   localStorage.setItem(SENDERS_KEY, JSON.stringify(list));
+}
+function loadRecipients() {
+  const data = localStorage.getItem(RECIPIENTS_KEY);
+  if (!data) {
+    localStorage.setItem(RECIPIENTS_KEY, JSON.stringify(DEFAULT_RECIPIENTS));
+    return [...DEFAULT_RECIPIENTS];
+  }
+  return JSON.parse(data);
+}
+function saveRecipients(list) {
+  localStorage.setItem(RECIPIENTS_KEY, JSON.stringify(list));
+}
+function getDefaultRecipientId() {
+  return localStorage.getItem(DEFAULT_RECIPIENT_KEY) || '';
+}
+function setDefaultRecipientId(id) {
+  localStorage.setItem(DEFAULT_RECIPIENT_KEY, id);
 }
 function loadParts() {
   const data = localStorage.getItem(PARTS_KEY);
@@ -670,6 +758,110 @@ function cancelGreetingEdit() {
   clearGreetingForm();
 }
 
+// === Recipient Templates ===
+function renderRecipients() {
+  const list = loadRecipients();
+  const defaultId = getDefaultRecipientId();
+  const container = document.getElementById('recipientList');
+
+  if (list.length === 0) {
+    container.innerHTML = '<div style="color:#aaa; font-size:14px; padding:12px;">送付先テンプレートがまだ登録されていません</div>';
+    return;
+  }
+
+  container.innerHTML = list.map(r => `
+    <div class="template-item ${r.id === defaultId ? 'active' : ''}">
+      <div class="info">
+        <div class="name">
+          ${esc(r.tplName || r.company)}
+          ${r.id === defaultId ? '<span class="default-badge">デフォルト</span>' : ''}
+        </div>
+        <div class="detail">${esc(r.company)}${r.dept ? ' / ' + esc(r.dept) : ''} / ${esc(r.name || '')} ${esc(r.title || '様')}</div>
+      </div>
+      <div class="actions">
+        ${r.id !== defaultId ? `<button class="btn btn-outline btn-sm" onclick="setDefaultRecipient('${r.id}')">デフォルト</button>` : ''}
+        <button class="btn btn-outline btn-sm" onclick="editRecipient('${r.id}')">編集</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRecipient('${r.id}')">削除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function saveRecipient() {
+  const editId = document.getElementById('editRecipientId').value;
+  const entry = {
+    id: editId || 'recipient_' + Date.now(),
+    tplName: document.getElementById('rcpTplName').value.trim(),
+    company: document.getElementById('rcpCompany').value.trim(),
+    dept: document.getElementById('rcpDept').value.trim(),
+    name: document.getElementById('rcpName').value.trim(),
+    title: document.getElementById('rcpTitle').value,
+  };
+
+  if (!entry.company && !entry.name) {
+    alert('会社名または担当者名を入力してください');
+    return;
+  }
+
+  const list = loadRecipients();
+  if (editId) {
+    const idx = list.findIndex(r => r.id === editId);
+    if (idx >= 0) list[idx] = entry;
+  } else {
+    list.push(entry);
+    if (list.length === 1) setDefaultRecipientId(entry.id);
+  }
+  saveRecipients(list);
+  clearRecipientForm();
+  renderRecipients();
+  showToast('送付先テンプレートを保存しました');
+}
+
+function editRecipient(id) {
+  const list = loadRecipients();
+  const r = list.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('editRecipientId').value = r.id;
+  document.getElementById('rcpTplName').value = r.tplName || '';
+  document.getElementById('rcpCompany').value = r.company || '';
+  document.getElementById('rcpDept').value = r.dept || '';
+  document.getElementById('rcpName').value = r.name || '';
+  document.getElementById('rcpTitle').value = r.title || '様';
+  document.getElementById('recipientFormDetails').open = true;
+}
+
+function deleteRecipient(id) {
+  if (!confirm('この送付先テンプレートを削除しますか？')) return;
+  let list = loadRecipients();
+  list = list.filter(r => r.id !== id);
+  saveRecipients(list);
+  if (getDefaultRecipientId() === id) {
+    setDefaultRecipientId(list.length > 0 ? list[0].id : '');
+  }
+  renderRecipients();
+  showToast('削除しました');
+}
+
+function setDefaultRecipient(id) {
+  setDefaultRecipientId(id);
+  renderRecipients();
+  showToast('デフォルトに設定しました');
+}
+
+function clearRecipientForm() {
+  document.getElementById('editRecipientId').value = '';
+  document.getElementById('rcpTplName').value = '';
+  document.getElementById('rcpCompany').value = '';
+  document.getElementById('rcpDept').value = '';
+  document.getElementById('rcpName').value = '';
+  document.getElementById('rcpTitle').value = '様';
+  document.getElementById('recipientFormDetails').open = false;
+}
+
+function cancelRecipientEdit() {
+  clearRecipientForm();
+}
+
 function esc(str) {
   const d = document.createElement('div');
   d.textContent = str;
@@ -678,6 +870,7 @@ function esc(str) {
 
 // Init
 renderSenders();
+renderRecipients();
 renderGreetings();
 renderParts();
 </script>
