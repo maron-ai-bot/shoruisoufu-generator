@@ -777,21 +777,21 @@ function downloadWord() {
   let baseFontSize, titleFontSize, lineHeight, marginMm, spacerHeight;
 
   if (docCount <= 3 && !hasRemarks) {
-    // 少量：ゆったり大きく表示
-    baseFontSize = '12pt'; titleFontSize = '16pt'; lineHeight = '2.2';
-    marginMm = '30mm 25mm 30mm 25mm'; spacerHeight = '20pt';
+    // 少量：ゆったり表示（A4一枚に収まる範囲で最大化）
+    baseFontSize = '11pt'; titleFontSize = '14pt'; lineHeight = '1.8';
+    marginMm = '25mm 25mm 25mm 25mm'; spacerHeight = '14pt';
   } else if (docCount <= 6) {
     // 中量：標準
-    baseFontSize = '11pt'; titleFontSize = '14pt'; lineHeight = '1.9';
-    marginMm = '25mm 25mm 25mm 25mm'; spacerHeight = '14pt';
+    baseFontSize = '10.5pt'; titleFontSize = '13pt'; lineHeight = '1.6';
+    marginMm = '22mm 25mm 22mm 25mm'; spacerHeight = '10pt';
   } else if (docCount <= 10) {
     // 多め：コンパクト
-    baseFontSize = '10.5pt'; titleFontSize = '13pt'; lineHeight = '1.6';
-    marginMm = '20mm 22mm 20mm 22mm'; spacerHeight = '8pt';
+    baseFontSize = '10pt'; titleFontSize = '12pt'; lineHeight = '1.4';
+    marginMm = '20mm 22mm 20mm 22mm'; spacerHeight = '6pt';
   } else {
     // 大量：最小
-    baseFontSize = '9.5pt'; titleFontSize = '12pt'; lineHeight = '1.3';
-    marginMm = '18mm 20mm 18mm 20mm'; spacerHeight = '4pt';
+    baseFontSize = '9pt'; titleFontSize = '11pt'; lineHeight = '1.2';
+    marginMm = '18mm 20mm 18mm 20mm'; spacerHeight = '3pt';
   }
 
   // Remarks
