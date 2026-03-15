@@ -344,6 +344,18 @@
     </div>
 
     <div class="form-section">
+      <div class="form-section-title">挨拶文</div>
+      <div class="form-group">
+        <select id="greetingSelect" onchange="onGreetingSelect()">
+          <option value="">-- 挨拶文を選択 --</option>
+        </select>
+      </div>
+      <div id="greetingPreview" style="background:#f7fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; font-size:12px; color:#4a5568; line-height:1.6;">
+        <span style="color:#aaa;">設定ページで挨拶文テンプレートを登録してください</span>
+      </div>
+    </div>
+
+    <div class="form-section">
       <div class="form-section-title">送付書類を選択</div>
       <div class="doc-blocks" id="docBlocks">
         <!-- JS で生成 -->
@@ -381,11 +393,25 @@
 const SENDERS_KEY = 'soufujou_senders';
 const PARTS_KEY = 'soufujou_parts';
 const DEFAULT_SENDER_KEY = 'soufujou_default_sender';
+const GREETINGS_KEY = 'soufujou_greetings';
+const DEFAULT_GREETING_KEY = 'soufujou_default_greeting';
 
 const DEFAULT_PARTS = [
   '委任契約書', '委任状', '着手金請求書', '報酬金請求書',
   '請求書', '領収書', '契約書（写し）', '裁判書類（写し）',
   '職務上請求書', '納品書', '見積書', '通知書'
+];
+
+const DEFAULT_GREETINGS = [
+  { id: 'greeting_default_1', tplName: '一般的な挨拶',
+    line1: '拝啓　時下ますますご清栄のこととお慶び申し上げます。',
+    line2: '下記の書類をお送りいたしますので、ご査収のほどよろしくお願い申し上げます。' },
+  { id: 'greeting_default_2', tplName: '平素よりお世話になっております',
+    line1: '拝啓　平素は格別のお引き立てを賜り、厚く御礼申し上げます。',
+    line2: '下記の書類をお送りいたしますので、ご査収のほどよろしくお願い申し上げます。' },
+  { id: 'greeting_default_3', tplName: '簡潔な挨拶',
+    line1: '拝啓　貴社ますますご盛栄のこととお慶び申し上げます。',
+    line2: '下記書類を送付いたしますので、ご確認くださいますようお願い申し上げます。' }
 ];
 
 function loadSenders() {
@@ -397,16 +423,24 @@ function loadParts() {
   if (!d) { localStorage.setItem(PARTS_KEY, JSON.stringify(DEFAULT_PARTS)); return [...DEFAULT_PARTS]; }
   return JSON.parse(d);
 }
+function loadGreetings() {
+  const d = localStorage.getItem(GREETINGS_KEY);
+  if (!d) { localStorage.setItem(GREETINGS_KEY, JSON.stringify(DEFAULT_GREETINGS)); localStorage.setItem(DEFAULT_GREETING_KEY, DEFAULT_GREETINGS[0].id); return [...DEFAULT_GREETINGS]; }
+  return JSON.parse(d);
+}
 function getDefaultSenderId() { return localStorage.getItem(DEFAULT_SENDER_KEY) || ''; }
+function getDefaultGreetingId() { return localStorage.getItem(DEFAULT_GREETING_KEY) || ''; }
 
 // === State ===
 let selectedSender = null;
+let selectedGreeting = null;
 let selectedDocList = []; // [{name, qty}]
 
 // === Init ===
 function init() {
   initDate();
   loadSenderSelect();
+  loadGreetingSelect();
   buildDocBlocks();
   updatePreview();
 
@@ -462,6 +496,40 @@ function onSenderSelect() {
     box.innerHTML = html;
   } else {
     box.innerHTML = '<span style="color:#aaa;">設定ページで送付元テンプレートを登録してください</span>';
+  }
+  updatePreview();
+}
+
+// === Greeting ===
+function loadGreetingSelect() {
+  const sel = document.getElementById('greetingSelect');
+  const greetings = loadGreetings();
+  const defaultId = getDefaultGreetingId();
+
+  sel.innerHTML = '<option value="">-- 挨拶文を選択 --</option>';
+  greetings.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = g.tplName;
+    sel.appendChild(opt);
+  });
+
+  if (defaultId) {
+    sel.value = defaultId;
+    onGreetingSelect();
+  }
+}
+
+function onGreetingSelect() {
+  const id = document.getElementById('greetingSelect').value;
+  const greetings = loadGreetings();
+  selectedGreeting = greetings.find(g => g.id === id) || null;
+
+  const box = document.getElementById('greetingPreview');
+  if (selectedGreeting) {
+    box.innerHTML = `<div>${esc(selectedGreeting.line1)}</div><div style="text-indent:1em;">${esc(selectedGreeting.line2)}</div>`;
+  } else {
+    box.innerHTML = '<span style="color:#aaa;">設定ページで挨拶文テンプレートを登録してください</span>';
   }
   updatePreview();
 }
@@ -603,8 +671,8 @@ function updatePreview() {
     <div class="recipient-block">${recipientHtml || '<div style="color:#aaa;">（送付先を入力）</div>'}</div>
     <div class="sender-block">${senderHtml || '<div style="color:#aaa;">（送付元を選択）</div>'}</div>
     <div class="title-line">書 類 送 付 の ご 案 内</div>
-    <div class="greeting">拝啓　時下ますますご清栄のこととお慶び申し上げます。</div>
-    <div class="body-text">下記の書類をお送りいたしますので、ご査収のほどよろしくお願い申し上げます。</div>
+    <div class="greeting">${selectedGreeting ? esc(selectedGreeting.line1) : '拝啓　時下ますますご清栄のこととお慶び申し上げます。'}</div>
+    <div class="body-text">${selectedGreeting ? esc(selectedGreeting.line2) : '下記の書類をお送りいたしますので、ご査収のほどよろしくお願い申し上げます。'}</div>
     <div class="closing">敬具</div>
     <div class="record-title" style="margin-top:20px;">記</div>
     ${docTableHtml || '<div style="text-align:center; color:#aaa; margin:12px 0;">（書類パーツを選択）</div>'}
@@ -651,10 +719,11 @@ function resetForm() {
   document.querySelectorAll('.doc-block.selected').forEach(b => b.classList.remove('selected'));
   renderSelectedDocs();
   initDate();
+  loadGreetingSelect();
   updatePreview();
 }
 
-// === Word Download (HTML-based .doc) ===
+// === Word Download (HTML-based .doc) — A4一枚に収める ===
 function downloadWord() {
   const date = document.getElementById('sendDate').value;
   const recipientCompany = document.getElementById('recipientCompany').value;
@@ -663,17 +732,21 @@ function downloadWord() {
   const recipientTitle = document.getElementById('recipientTitle').value;
   const remarks = document.getElementById('remarks').value;
 
+  // 挨拶文
+  const greetLine1 = selectedGreeting ? esc(selectedGreeting.line1) : '拝啓　時下ますますご清栄のこととお慶び申し上げます。';
+  const greetLine2 = selectedGreeting ? esc(selectedGreeting.line2) : '下記の書類をお送りいたしますので、ご査収のほどよろしくお願い申し上げます。';
+
   // Build recipient
   let recipientLines = [];
   if (recipientCompany) recipientLines.push(esc(recipientCompany));
   if (recipientDept) recipientLines.push(esc(recipientDept));
   if (recipientName) {
-    recipientLines.push(`<span style="font-size:14pt">${esc(recipientName)}　${esc(recipientTitle)}</span>`);
+    recipientLines.push(`<span style="font-size:13pt">${esc(recipientName)}　${esc(recipientTitle)}</span>`);
   } else if (recipientCompany && recipientTitle === '御中') {
     if (recipientDept) {
-      recipientLines = [esc(recipientCompany), `<span style="font-size:14pt">${esc(recipientDept)}　御中</span>`];
+      recipientLines = [esc(recipientCompany), `<span style="font-size:13pt">${esc(recipientDept)}　御中</span>`];
     } else {
-      recipientLines = [`<span style="font-size:14pt">${esc(recipientCompany)}　御中</span>`];
+      recipientLines = [`<span style="font-size:13pt">${esc(recipientCompany)}　御中</span>`];
     }
   }
 
@@ -681,11 +754,11 @@ function downloadWord() {
   let senderLines = [];
   if (selectedSender) {
     senderLines.push(esc(selectedSender.company));
-    if (selectedSender.address) senderLines.push(`<span style="font-size:10pt">${esc(selectedSender.address)}</span>`);
+    if (selectedSender.address) senderLines.push(`<span style="font-size:9pt">${esc(selectedSender.address)}</span>`);
     let contact = '';
     if (selectedSender.tel) contact += `TEL: ${esc(selectedSender.tel)}`;
     if (selectedSender.fax) contact += `　FAX: ${esc(selectedSender.fax)}`;
-    if (contact) senderLines.push(`<span style="font-size:10pt">${contact}</span>`);
+    if (contact) senderLines.push(`<span style="font-size:9pt">${contact}</span>`);
     if (selectedSender.senderName) senderLines.push(esc(selectedSender.senderName));
   }
 
@@ -693,73 +766,86 @@ function downloadWord() {
   let docRows = '';
   if (selectedDocList.length > 0) {
     selectedDocList.forEach(d => {
-      docRows += `<tr><td style="padding:4px 16px; border-bottom:1px dotted #999;">${esc(d.name)}</td>
-        <td style="padding:4px 16px; border-bottom:1px dotted #999; text-align:right;">${d.qty}部</td></tr>`;
+      docRows += `<tr><td style="padding:2px 16px; border-bottom:1px dotted #999;">${esc(d.name)}</td>
+        <td style="padding:2px 16px; border-bottom:1px dotted #999; text-align:right;">${d.qty}部</td></tr>`;
     });
   }
 
-  // Determine font sizes - auto-shrink if many docs
+  // === A4一枚に収めるための動的サイズ計算 ===
   const docCount = selectedDocList.length;
-  let baseFontSize = '12pt';
-  let titleFontSize = '16pt';
-  let lineHeight = '2.0';
-  if (docCount > 8) {
-    baseFontSize = '10.5pt';
-    titleFontSize = '14pt';
-    lineHeight = '1.6';
-  } else if (docCount > 5) {
-    baseFontSize = '11pt';
-    titleFontSize = '15pt';
-    lineHeight = '1.8';
+  const hasRemarks = remarks.trim().length > 0;
+  // コンテンツ量に応じてフォント・行間・余白を段階的に調整
+  let baseFontSize, titleFontSize, lineHeight, marginMm, spacerHeight, docTablePadding;
+
+  if (docCount <= 3 && !hasRemarks) {
+    // 少量：ゆったり
+    baseFontSize = '11pt'; titleFontSize = '14pt'; lineHeight = '1.8';
+    marginMm = '25mm 25mm 25mm 25mm'; spacerHeight = '12pt'; docTablePadding = '3px 16px';
+  } else if (docCount <= 6) {
+    // 中量：標準
+    baseFontSize = '10.5pt'; titleFontSize = '13pt'; lineHeight = '1.6';
+    marginMm = '20mm 25mm 20mm 25mm'; spacerHeight = '8pt'; docTablePadding = '2px 16px';
+  } else if (docCount <= 10) {
+    // 多め：コンパクト
+    baseFontSize = '10pt'; titleFontSize = '12pt'; lineHeight = '1.4';
+    marginMm = '18mm 22mm 18mm 22mm'; spacerHeight = '4pt'; docTablePadding = '1px 14px';
+  } else {
+    // 大量：最小
+    baseFontSize = '9pt'; titleFontSize = '11pt'; lineHeight = '1.2';
+    marginMm = '15mm 20mm 15mm 20mm'; spacerHeight = '2pt'; docTablePadding = '1px 12px';
   }
 
   // Remarks
   let remarksHtml = '';
-  if (remarks.trim()) {
-    remarksHtml = `<p style="margin-top:16px; padding:6px 12px; border-left:3px solid #ccc; font-size:10pt; color:#555;">
+  if (hasRemarks) {
+    remarksHtml = `<p style="margin:6pt 0 0 0; padding:4px 10px; border-left:2px solid #999; font-size:9pt; color:#333;">
       ${esc(remarks).replace(/\n/g, '<br>')}</p>`;
   }
 
-  const html = `
-<html xmlns:o="urn:schemas-microsoft-com:office:office"
+  // spacer helper (replaces <br> to control spacing precisely)
+  const sp = (h) => `<p style="font-size:1pt; line-height:${h}; margin:0;">&nbsp;</p>`;
+
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
       xmlns:w="urn:schemas-microsoft-com:office:word"
       xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta charset="utf-8">
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->
 <style>
-  @page { size: A4; margin: 25mm 25mm 25mm 25mm; }
+  @page { size: A4; margin: ${marginMm}; mso-page-orientation: portrait; }
   body {
     font-family: 'ＭＳ 明朝', 'Yu Mincho', serif;
     font-size: ${baseFontSize};
     line-height: ${lineHeight};
     color: #000;
   }
+  p { margin: 0; padding: 0; }
   table { border-collapse: collapse; }
 </style>
 </head>
 <body>
-  <p style="text-align:right;">${formatDate(date)}</p>
-  <br>
-  ${recipientLines.map(l => `<p>${l}</p>`).join('\n')}
-  <br>
-  ${senderLines.map(l => `<p style="text-align:right;">${l}</p>`).join('\n')}
-  <br>
-  <p style="text-align:center; font-size:${titleFontSize}; font-weight:bold; letter-spacing:6px;">書 類 送 付 の ご 案 内</p>
-  <br>
-  <p>拝啓　時下ますますご清栄のこととお慶び申し上げます。</p>
-  <p style="text-indent:1em;">下記の書類をお送りいたしますので、ご査収のほどよろしくお願い申し上げます。</p>
-  <p style="text-align:right;">敬具</p>
-  <br>
-  <p style="text-align:center; font-weight:bold; font-size:14pt;">記</p>
-  <br>
-  ${docRows ? `<table style="margin:0 auto;"><tbody>${docRows}</tbody></table>` : ''}
-  <br>
-  <p style="text-align:center;">以上</p>
-  ${remarksHtml}
+<p style="text-align:right;">${formatDate(date)}</p>
+${sp(spacerHeight)}
+${recipientLines.map(l => `<p style="margin:0;">${l}</p>`).join('\n')}
+${sp(spacerHeight)}
+${senderLines.map(l => `<p style="text-align:right; margin:0;">${l}</p>`).join('\n')}
+${sp(spacerHeight)}
+<p style="text-align:center; font-size:${titleFontSize}; font-weight:bold; letter-spacing:6px; margin:0;">書 類 送 付 の ご 案 内</p>
+${sp(spacerHeight)}
+<p style="margin:0;">${greetLine1}</p>
+<p style="text-indent:1em; margin:0;">${greetLine2}</p>
+<p style="text-align:right; margin:0;">敬具</p>
+${sp(spacerHeight)}
+<p style="text-align:center; font-weight:bold; font-size:${titleFontSize}; margin:0;">記</p>
+${sp(spacerHeight)}
+${docRows ? `<table style="margin:0 auto;"><tbody>${docRows}</tbody></table>` : ''}
+${sp(spacerHeight)}
+<p style="text-align:center; margin:0;">以上</p>
+${remarksHtml}
 </body>
 </html>`;
 
-  const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
+  const blob = new Blob(['\ufeff' + html], { type: 'application/msword;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

@@ -275,6 +275,43 @@
     </details>
   </div>
 
+  <!-- 挨拶文テンプレート -->
+  <div class="card">
+    <div class="card-title">挨拶文テンプレート</div>
+    <p style="font-size:13px; color:#718096; margin-bottom:16px;">
+      「書類送付のご案内」の下に表示される挨拶文を管理します。作成画面でドロップダウンから選択できます。
+    </p>
+
+    <div class="template-list" id="greetingList">
+      <!-- JS で生成 -->
+    </div>
+
+    <details id="greetingFormDetails">
+      <summary style="cursor:pointer; font-size:14px; font-weight:600; color:#2563eb; margin-bottom:12px;">
+        ＋ 新しい挨拶文を登録
+      </summary>
+      <div style="margin-top:12px; padding:16px; border:1px solid #e2e8f0; border-radius:8px;">
+        <input type="hidden" id="editGreetingId" value="">
+        <div class="form-group">
+          <label>テンプレート名（管理用）</label>
+          <input type="text" id="greetingTplName" placeholder="例：一般的な挨拶、季節の挨拶（春）">
+        </div>
+        <div class="form-group">
+          <label>挨拶文（1行目）</label>
+          <input type="text" id="greetingLine1" placeholder="例：拝啓　時下ますますご清栄のこととお慶び申し上げます。">
+        </div>
+        <div class="form-group">
+          <label>本文（2行目）</label>
+          <input type="text" id="greetingLine2" placeholder="例：下記の書類をお送りいたしますので、ご査収のほどよろしくお願い申し上げます。">
+        </div>
+        <div style="display:flex; gap:8px; margin-top:16px;">
+          <button class="btn btn-primary" onclick="saveGreeting()">保存</button>
+          <button class="btn btn-outline" onclick="cancelGreetingEdit()">キャンセル</button>
+        </div>
+      </div>
+    </details>
+  </div>
+
   <!-- 書類パーツ管理 -->
   <div class="card">
     <div class="card-title">書類パーツ管理</div>
@@ -301,6 +338,30 @@
 const SENDERS_KEY = 'soufujou_senders';
 const PARTS_KEY = 'soufujou_parts';
 const DEFAULT_SENDER_KEY = 'soufujou_default_sender';
+const GREETINGS_KEY = 'soufujou_greetings';
+const DEFAULT_GREETING_KEY = 'soufujou_default_greeting';
+
+// === Default greetings ===
+const DEFAULT_GREETINGS = [
+  {
+    id: 'greeting_default_1',
+    tplName: '一般的な挨拶',
+    line1: '拝啓　時下ますますご清栄のこととお慶び申し上げます。',
+    line2: '下記の書類をお送りいたしますので、ご査収のほどよろしくお願い申し上げます。'
+  },
+  {
+    id: 'greeting_default_2',
+    tplName: '平素よりお世話になっております',
+    line1: '拝啓　平素は格別のお引き立てを賜り、厚く御礼申し上げます。',
+    line2: '下記の書類をお送りいたしますので、ご査収のほどよろしくお願い申し上げます。'
+  },
+  {
+    id: 'greeting_default_3',
+    tplName: '簡潔な挨拶',
+    line1: '拝啓　貴社ますますご盛栄のこととお慶び申し上げます。',
+    line2: '下記書類を送付いたしますので、ご確認くださいますようお願い申し上げます。'
+  }
+];
 
 // === Default parts ===
 const DEFAULT_PARTS = [
@@ -492,6 +553,123 @@ function removePart(idx) {
   showToast('削除しました');
 }
 
+// === Greeting Templates ===
+function loadGreetings() {
+  const data = localStorage.getItem(GREETINGS_KEY);
+  if (!data) {
+    localStorage.setItem(GREETINGS_KEY, JSON.stringify(DEFAULT_GREETINGS));
+    localStorage.setItem(DEFAULT_GREETING_KEY, DEFAULT_GREETINGS[0].id);
+    return [...DEFAULT_GREETINGS];
+  }
+  return JSON.parse(data);
+}
+function saveGreetings(list) {
+  localStorage.setItem(GREETINGS_KEY, JSON.stringify(list));
+}
+function getDefaultGreetingId() {
+  return localStorage.getItem(DEFAULT_GREETING_KEY) || '';
+}
+function setDefaultGreetingId(id) {
+  localStorage.setItem(DEFAULT_GREETING_KEY, id);
+}
+
+function renderGreetings() {
+  const list = loadGreetings();
+  const defaultId = getDefaultGreetingId();
+  const container = document.getElementById('greetingList');
+
+  if (list.length === 0) {
+    container.innerHTML = '<div style="color:#aaa; font-size:14px; padding:12px;">挨拶文テンプレートがまだ登録されていません</div>';
+    return;
+  }
+
+  container.innerHTML = list.map(g => `
+    <div class="template-item ${g.id === defaultId ? 'active' : ''}">
+      <div class="info">
+        <div class="name">
+          ${esc(g.tplName)}
+          ${g.id === defaultId ? '<span class="default-badge">デフォルト</span>' : ''}
+        </div>
+        <div class="detail" style="max-width:550px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(g.line1)}</div>
+      </div>
+      <div class="actions">
+        ${g.id !== defaultId ? `<button class="btn btn-outline btn-sm" onclick="setDefaultGreeting('${g.id}')">デフォルト</button>` : ''}
+        <button class="btn btn-outline btn-sm" onclick="editGreeting('${g.id}')">編集</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteGreeting('${g.id}')">削除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function saveGreeting() {
+  const editId = document.getElementById('editGreetingId').value;
+  const entry = {
+    id: editId || 'greeting_' + Date.now(),
+    tplName: document.getElementById('greetingTplName').value.trim(),
+    line1: document.getElementById('greetingLine1').value.trim(),
+    line2: document.getElementById('greetingLine2').value.trim(),
+  };
+
+  if (!entry.tplName || !entry.line1) {
+    alert('テンプレート名と挨拶文を入力してください');
+    return;
+  }
+
+  const list = loadGreetings();
+  if (editId) {
+    const idx = list.findIndex(g => g.id === editId);
+    if (idx >= 0) list[idx] = entry;
+  } else {
+    list.push(entry);
+    if (list.length === 1) setDefaultGreetingId(entry.id);
+  }
+  saveGreetings(list);
+  clearGreetingForm();
+  renderGreetings();
+  showToast('挨拶文テンプレートを保存しました');
+}
+
+function editGreeting(id) {
+  const list = loadGreetings();
+  const g = list.find(x => x.id === id);
+  if (!g) return;
+  document.getElementById('editGreetingId').value = g.id;
+  document.getElementById('greetingTplName').value = g.tplName || '';
+  document.getElementById('greetingLine1').value = g.line1 || '';
+  document.getElementById('greetingLine2').value = g.line2 || '';
+  document.getElementById('greetingFormDetails').open = true;
+}
+
+function deleteGreeting(id) {
+  if (!confirm('この挨拶文テンプレートを削除しますか？')) return;
+  let list = loadGreetings();
+  list = list.filter(g => g.id !== id);
+  saveGreetings(list);
+  if (getDefaultGreetingId() === id) {
+    setDefaultGreetingId(list.length > 0 ? list[0].id : '');
+  }
+  renderGreetings();
+  showToast('削除しました');
+}
+
+function setDefaultGreeting(id) {
+  setDefaultGreetingId(id);
+  renderGreetings();
+  showToast('デフォルトに設定しました');
+}
+
+function clearGreetingForm() {
+  document.getElementById('editGreetingId').value = '';
+  document.getElementById('greetingTplName').value = '';
+  document.getElementById('greetingLine1').value = '';
+  document.getElementById('greetingLine2').value = '';
+  document.getElementById('greetingFormDetails').open = false;
+}
+
+function cancelGreetingEdit() {
+  clearGreetingForm();
+}
+
 function esc(str) {
   const d = document.createElement('div');
   d.textContent = str;
@@ -500,6 +678,7 @@ function esc(str) {
 
 // Init
 renderSenders();
+renderGreetings();
 renderParts();
 </script>
 
