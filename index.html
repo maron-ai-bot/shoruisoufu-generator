@@ -227,50 +227,45 @@
       align-self: flex-start;
     }
 
-    /* A4 paper simulation: fixed aspect ratio container */
+    /* A4 paper simulation */
     .a4-wrapper {
       width: 100%;
       max-width: 595px; /* A4 at 72dpi */
-      aspect-ratio: 210 / 297;
       position: relative;
-      overflow: hidden;
     }
     .preview-paper {
       background: white;
       width: 595px;
-      height: 842px;
-      padding: 56px 52px;
+      min-height: 842px;
+      padding: 40px 50px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.1);
       font-family: 'Hiragino Mincho ProN', 'Noto Serif JP', 'Yu Mincho', serif;
-      font-size: 14px;
-      line-height: 1.8;
-      position: absolute;
-      top: 0;
-      left: 0;
+      font-size: 13px;
+      line-height: 1.7;
       transform-origin: top left;
     }
-    .preview-paper .date-line { text-align: right; margin-bottom: 20px; }
-    .preview-paper .recipient-block { margin-bottom: 20px; }
+    .preview-paper .date-line { text-align: right; margin-bottom: 10px; }
+    .preview-paper .recipient-block { margin-bottom: 10px; }
     .preview-paper .recipient-name { font-size: 15px; }
-    .preview-paper .sender-block { text-align: right; margin-bottom: 24px; }
+    .preview-paper .sender-block { text-align: right; margin-bottom: 14px; }
     .preview-paper .title-line {
       text-align: center;
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 700;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
       letter-spacing: 8px;
     }
-    .preview-paper .greeting { margin-bottom: 6px; }
-    .preview-paper .body-text { margin-bottom: 16px; text-indent: 1em; }
-    .preview-paper .closing { text-align: right; margin-top: 12px; }
-    .preview-paper .record-title { text-align: center; font-weight: 700; margin-bottom: 8px; }
+    .preview-paper .greeting { margin-bottom: 4px; }
+    .preview-paper .body-text { margin-bottom: 6px; text-indent: 1em; }
+    .preview-paper .closing { text-align: right; margin-top: 4px; }
+    .preview-paper .record-title { text-align: center; font-weight: 700; margin: 10px 0 6px; }
     .preview-paper .doc-table {
       width: 80%;
-      margin: 0 auto 16px;
+      margin: 0 auto 8px;
       border-collapse: collapse;
     }
     .preview-paper .doc-table td {
-      padding: 4px 10px;
+      padding: 3px 10px;
       border-bottom: 1px dotted #999;
     }
     .preview-paper .doc-table td:last-child { text-align: right; white-space: nowrap; }
@@ -743,9 +738,9 @@ function updatePreview() {
     <div class="greeting">${selectedGreeting ? esc(selectedGreeting.line1) : '拝啓　時下ますますご清栄のこととお慶び申し上げます。'}</div>
     <div class="body-text">${selectedGreeting ? esc(selectedGreeting.line2) : '下記の書類をお送りいたしますので、ご査収のほどよろしくお願い申し上げます。'}</div>
     <div class="closing">敬具</div>
-    <div class="record-title" style="margin-top:20px;">記</div>
-    ${docTableHtml || '<div style="text-align:center; color:#aaa; margin:12px 0;">（書類パーツを選択）</div>'}
-    <div style="text-align:center; margin-top:16px;">以上</div>
+    <div class="record-title">記</div>
+    ${docTableHtml || '<div style="text-align:center; color:#aaa; margin:8px 0;">（書類パーツを選択）</div>'}
+    <div style="text-align:center; margin-top:10px;">以上</div>
     ${remarksHtml}
   `;
 
@@ -757,22 +752,12 @@ function autoScalePaper() {
   const wrapper = document.getElementById('a4Wrapper');
   const paper = document.getElementById('previewPaper');
   const wrapperWidth = wrapper.clientWidth;
-  const scaleX = wrapperWidth / 595;
+  const scale = wrapperWidth / 595;
 
-  // Check if content overflows the 842px height
-  const contentHeight = paper.scrollHeight;
-  let scaleY = 1;
-  if (contentHeight > 842) {
-    scaleY = 842 / contentHeight;
-  }
-
-  const scale = Math.min(scaleX, scaleY * scaleX);
   paper.style.transform = `scale(${scale})`;
-
-  // Adjust wrapper height to match scaled paper
-  const effectiveHeight = (contentHeight > 842 ? 842 : contentHeight) * scaleX;
-  // Keep aspect ratio
-  wrapper.style.height = `${842 * scaleX}px`;
+  // wrapperの高さをスケーリング後の実際の高さに合わせる
+  const paperHeight = Math.max(paper.scrollHeight, 842);
+  wrapper.style.height = `${paperHeight * scale}px`;
 }
 
 window.addEventListener('resize', autoScalePaper);
@@ -846,22 +831,23 @@ function downloadWord() {
   // コンテンツ量に応じてフォント・行間・余白を段階的に調整
   let baseFontSize, titleFontSize, lineHeight, marginMm, spacerHeight;
 
+  // 余白は一般的なビジネス文書基準（上下20mm、左右20mm）
   if (docCount <= 3 && !hasRemarks) {
-    // 少量：ゆったり表示（A4一枚に収まる範囲で最大化）
-    baseFontSize = '11pt'; titleFontSize = '14pt'; lineHeight = '1.8';
-    marginMm = '25mm 25mm 25mm 25mm'; spacerHeight = '14pt';
+    // 少量：適度なゆとり
+    baseFontSize = '10.5pt'; titleFontSize = '14pt'; lineHeight = '1.7';
+    marginMm = '20mm 20mm 20mm 20mm'; spacerHeight = '8pt';
   } else if (docCount <= 6) {
     // 中量：標準
     baseFontSize = '10.5pt'; titleFontSize = '13pt'; lineHeight = '1.6';
-    marginMm = '22mm 25mm 22mm 25mm'; spacerHeight = '10pt';
+    marginMm = '20mm 20mm 20mm 20mm'; spacerHeight = '6pt';
   } else if (docCount <= 10) {
     // 多め：コンパクト
     baseFontSize = '10pt'; titleFontSize = '12pt'; lineHeight = '1.4';
-    marginMm = '20mm 22mm 20mm 22mm'; spacerHeight = '6pt';
+    marginMm = '18mm 20mm 18mm 20mm'; spacerHeight = '4pt';
   } else {
     // 大量：最小
     baseFontSize = '9pt'; titleFontSize = '11pt'; lineHeight = '1.2';
-    marginMm = '18mm 20mm 18mm 20mm'; spacerHeight = '3pt';
+    marginMm = '15mm 18mm 15mm 18mm'; spacerHeight = '2pt';
   }
 
   // Remarks
