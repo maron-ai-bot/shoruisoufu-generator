@@ -741,12 +741,12 @@ function downloadWord() {
   if (recipientCompany) recipientLines.push(esc(recipientCompany));
   if (recipientDept) recipientLines.push(esc(recipientDept));
   if (recipientName) {
-    recipientLines.push(`<span style="font-size:13pt">${esc(recipientName)}　${esc(recipientTitle)}</span>`);
+    recipientLines.push(`<span style="font-size:14pt">${esc(recipientName)}　${esc(recipientTitle)}</span>`);
   } else if (recipientCompany && recipientTitle === '御中') {
     if (recipientDept) {
-      recipientLines = [esc(recipientCompany), `<span style="font-size:13pt">${esc(recipientDept)}　御中</span>`];
+      recipientLines = [esc(recipientCompany), `<span style="font-size:14pt">${esc(recipientDept)}　御中</span>`];
     } else {
-      recipientLines = [`<span style="font-size:13pt">${esc(recipientCompany)}　御中</span>`];
+      recipientLines = [`<span style="font-size:14pt">${esc(recipientCompany)}　御中</span>`];
     }
   }
 
@@ -754,20 +754,19 @@ function downloadWord() {
   let senderLines = [];
   if (selectedSender) {
     senderLines.push(esc(selectedSender.company));
-    if (selectedSender.address) senderLines.push(`<span style="font-size:9pt">${esc(selectedSender.address)}</span>`);
+    if (selectedSender.address) senderLines.push(`<span style="font-size:10pt">${esc(selectedSender.address)}</span>`);
     let contact = '';
     if (selectedSender.tel) contact += `TEL: ${esc(selectedSender.tel)}`;
     if (selectedSender.fax) contact += `　FAX: ${esc(selectedSender.fax)}`;
-    if (contact) senderLines.push(`<span style="font-size:9pt">${contact}</span>`);
+    if (contact) senderLines.push(`<span style="font-size:10pt">${contact}</span>`);
     if (selectedSender.senderName) senderLines.push(esc(selectedSender.senderName));
   }
 
-  // Build doc rows
-  let docRows = '';
+  // Build doc list (リスト形式 — テーブル枠線を排除)
+  let docListHtml = '';
   if (selectedDocList.length > 0) {
     selectedDocList.forEach(d => {
-      docRows += `<tr><td style="padding:2px 16px; border-bottom:1px dotted #999;">${esc(d.name)}</td>
-        <td style="padding:2px 16px; border-bottom:1px dotted #999; text-align:right;">${d.qty}部</td></tr>`;
+      docListHtml += `<p style="margin:0; padding:2pt 0; text-indent:2em;">・${esc(d.name)}　　${d.qty}部</p>\n`;
     });
   }
 
@@ -775,24 +774,24 @@ function downloadWord() {
   const docCount = selectedDocList.length;
   const hasRemarks = remarks.trim().length > 0;
   // コンテンツ量に応じてフォント・行間・余白を段階的に調整
-  let baseFontSize, titleFontSize, lineHeight, marginMm, spacerHeight, docTablePadding;
+  let baseFontSize, titleFontSize, lineHeight, marginMm, spacerHeight;
 
   if (docCount <= 3 && !hasRemarks) {
-    // 少量：ゆったり
-    baseFontSize = '11pt'; titleFontSize = '14pt'; lineHeight = '1.8';
-    marginMm = '25mm 25mm 25mm 25mm'; spacerHeight = '12pt'; docTablePadding = '3px 16px';
+    // 少量：ゆったり大きく表示
+    baseFontSize = '12pt'; titleFontSize = '16pt'; lineHeight = '2.2';
+    marginMm = '30mm 25mm 30mm 25mm'; spacerHeight = '20pt';
   } else if (docCount <= 6) {
     // 中量：標準
-    baseFontSize = '10.5pt'; titleFontSize = '13pt'; lineHeight = '1.6';
-    marginMm = '20mm 25mm 20mm 25mm'; spacerHeight = '8pt'; docTablePadding = '2px 16px';
+    baseFontSize = '11pt'; titleFontSize = '14pt'; lineHeight = '1.9';
+    marginMm = '25mm 25mm 25mm 25mm'; spacerHeight = '14pt';
   } else if (docCount <= 10) {
     // 多め：コンパクト
-    baseFontSize = '10pt'; titleFontSize = '12pt'; lineHeight = '1.4';
-    marginMm = '18mm 22mm 18mm 22mm'; spacerHeight = '4pt'; docTablePadding = '1px 14px';
+    baseFontSize = '10.5pt'; titleFontSize = '13pt'; lineHeight = '1.6';
+    marginMm = '20mm 22mm 20mm 22mm'; spacerHeight = '8pt';
   } else {
     // 大量：最小
-    baseFontSize = '9pt'; titleFontSize = '11pt'; lineHeight = '1.2';
-    marginMm = '15mm 20mm 15mm 20mm'; spacerHeight = '2pt'; docTablePadding = '1px 12px';
+    baseFontSize = '9.5pt'; titleFontSize = '12pt'; lineHeight = '1.3';
+    marginMm = '18mm 20mm 18mm 20mm'; spacerHeight = '4pt';
   }
 
   // Remarks
@@ -820,7 +819,6 @@ function downloadWord() {
     color: #000;
   }
   p { margin: 0; padding: 0; }
-  table { border-collapse: collapse; }
 </style>
 </head>
 <body>
@@ -838,7 +836,7 @@ ${sp(spacerHeight)}
 ${sp(spacerHeight)}
 <p style="text-align:center; font-weight:bold; font-size:${titleFontSize}; margin:0;">記</p>
 ${sp(spacerHeight)}
-${docRows ? `<table style="margin:0 auto;"><tbody>${docRows}</tbody></table>` : ''}
+${docListHtml}
 ${sp(spacerHeight)}
 <p style="text-align:center; margin:0;">以上</p>
 ${remarksHtml}
