@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>設定 - 書類送付状 自動作成ツール</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Meiryo', sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    header h1 { font-size: 20px; font-weight: 700; }
+    .header-nav a {
+      color: rgba(255,255,255,0.85);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 6px 16px;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 6px;
+      transition: all 0.15s;
+    }
+    .header-nav a:hover { background: rgba(255,255,255,0.15); color: white; }
+
+    .page-content {
+      max-width: 900px;
+      margin: 32px auto;
+      padding: 0 24px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #2563eb;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .card-title::before {
+      content: '';
+      width: 4px;
+      height: 20px;
+      background: #2563eb;
+      border-radius: 2px;
+    }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 4px;
+    }
+    .form-group input, .form-group textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .form-group input:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+    .btn-outline {
+      background: white;
+      color: #4a5568;
+      border: 1px solid #d1d5db;
+    }
+    .btn-outline:hover { background: #f7fafc; }
+
+    .template-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .template-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fafbfc;
+    }
+    .template-item.active {
+      border-color: #2563eb;
+      background: #eff6ff;
+    }
+    .template-item .info { flex: 1; }
+    .template-item .info .name { font-weight: 600; font-size: 14px; }
+    .template-item .info .detail { font-size: 12px; color: #718096; margin-top: 2px; }
+    .template-item .actions { display: flex; gap: 6px; }
+
+    .default-badge {
+      display: inline-block;
+      background: #059669;
+      color: white;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-left: 8px;
+    }
+
+    /* Document parts */
+    .parts-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .part-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 20px;
+      font-size: 14px;
+    }
+    .part-tag .remove-part {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: none;
+      background: #cbd5e0;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    .part-tag .remove-part:hover { background: #ef4444; }
+
+    .add-part-row {
+      display: flex;
+      gap: 8px;
+    }
+    .add-part-row input {
+      flex: 1;
+      padding: 8px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .add-part-row input:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #059669;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚙️ 設定</h1>
+  <div class="header-nav">
+    <a href="index.html">← 送付状作成に戻る</a>
+  </div>
+</header>
+
+<div class="page-content">
+
+  <!-- 送付元テンプレート -->
+  <div class="card">
+    <div class="card-title">送付元テンプレート</div>
+
+    <div class="template-list" id="senderList">
+      <!-- JS で生成 -->
+    </div>
+
+    <details id="senderFormDetails">
+      <summary style="cursor:pointer; font-size:14px; font-weight:600; color:#2563eb; margin-bottom:12px;">
+        ＋ 新しい送付元を登録
+      </summary>
+      <div style="margin-top:12px; padding:16px; border:1px solid #e2e8f0; border-radius:8px;">
+        <input type="hidden" id="editSenderId" value="">
+        <div class="form-group">
+          <label>テンプレート名（管理用）</label>
+          <input type="text" id="tplName" placeholder="例：本社、支店A">
+        </div>
+        <div class="form-group">
+          <label>会社名・事務所名</label>
+          <input type="text" id="tplCompany" placeholder="例：〇〇法律事務所">
+        </div>
+        <div class="form-group">
+          <label>住所</label>
+          <input type="text" id="tplAddress" placeholder="例：東京都千代田区〇〇1-2-3">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>電話番号</label>
+            <input type="text" id="tplTel" placeholder="03-1234-5678">
+          </div>
+          <div class="form-group">
+            <label>FAX番号</label>
+            <input type="text" id="tplFax" placeholder="03-1234-5679">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>担当者名</label>
+          <input type="text" id="tplSenderName" placeholder="例：鈴木 一郎">
+        </div>
+        <div style="display:flex; gap:8px; margin-top:16px;">
+          <button class="btn btn-primary" onclick="saveSender()">保存</button>
+          <button class="btn btn-outline" onclick="cancelSenderEdit()">キャンセル</button>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <!-- 書類パーツ管理 -->
+  <div class="card">
+    <div class="card-title">書類パーツ管理</div>
+    <p style="font-size:13px; color:#718096; margin-bottom:16px;">
+      送付状作成時に選択できる書類パーツを管理します。ここで登録したパーツが、作成画面でレゴブロックのように選べるようになります。
+    </p>
+
+    <div class="parts-grid" id="partsGrid">
+      <!-- JS で生成 -->
+    </div>
+
+    <div class="add-part-row">
+      <input type="text" id="newPartName" placeholder="新しい書類パーツ名を入力" onkeydown="if(event.key==='Enter')addPart()">
+      <button class="btn btn-primary btn-sm" onclick="addPart()">追加</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// === Storage keys ===
+const SENDERS_KEY = 'soufujou_senders';
+const PARTS_KEY = 'soufujou_parts';
+const DEFAULT_SENDER_KEY = 'soufujou_default_sender';
+
+// === Default parts ===
+const DEFAULT_PARTS = [
+  '委任契約書', '委任状', '着手金請求書', '報酬金請求書',
+  '請求書', '領収書', '契約書（写し）', '裁判書類（写し）',
+  '職務上請求書', '納品書', '見積書', '通知書'
+];
+
+// === Load / Save helpers ===
+function loadSenders() {
+  const data = localStorage.getItem(SENDERS_KEY);
+  return data ? JSON.parse(data) : [];
+}
+function saveSenders(list) {
+  localStorage.setItem(SENDERS_KEY, JSON.stringify(list));
+}
+function loadParts() {
+  const data = localStorage.getItem(PARTS_KEY);
+  if (!data) {
+    // 初回は初期値をセット
+    localStorage.setItem(PARTS_KEY, JSON.stringify(DEFAULT_PARTS));
+    return [...DEFAULT_PARTS];
+  }
+  return JSON.parse(data);
+}
+function saveParts(list) {
+  localStorage.setItem(PARTS_KEY, JSON.stringify(list));
+}
+function getDefaultSenderId() {
+  return localStorage.getItem(DEFAULT_SENDER_KEY) || '';
+}
+function setDefaultSenderId(id) {
+  localStorage.setItem(DEFAULT_SENDER_KEY, id);
+}
+
+// === Toast ===
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// === Sender Templates ===
+function renderSenders() {
+  const list = loadSenders();
+  const defaultId = getDefaultSenderId();
+  const container = document.getElementById('senderList');
+
+  if (list.length === 0) {
+    container.innerHTML = '<div style="color:#aaa; font-size:14px; padding:12px;">送付元テンプレートがまだ登録されていません</div>';
+    return;
+  }
+
+  container.innerHTML = list.map(s => `
+    <div class="template-item ${s.id === defaultId ? 'active' : ''}">
+      <div class="info">
+        <div class="name">
+          ${esc(s.tplName || s.company)}
+          ${s.id === defaultId ? '<span class="default-badge">デフォルト</span>' : ''}
+        </div>
+        <div class="detail">${esc(s.company)} / ${esc(s.senderName)} / ${esc(s.tel)}</div>
+      </div>
+      <div class="actions">
+        ${s.id !== defaultId ? `<button class="btn btn-outline btn-sm" onclick="setDefault('${s.id}')">デフォルトに設定</button>` : ''}
+        <button class="btn btn-outline btn-sm" onclick="editSender('${s.id}')">編集</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSender('${s.id}')">削除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function saveSender() {
+  const editId = document.getElementById('editSenderId').value;
+  const entry = {
+    id: editId || 'sender_' + Date.now(),
+    tplName: document.getElementById('tplName').value.trim(),
+    company: document.getElementById('tplCompany').value.trim(),
+    address: document.getElementById('tplAddress').value.trim(),
+    tel: document.getElementById('tplTel').value.trim(),
+    fax: document.getElementById('tplFax').value.trim(),
+    senderName: document.getElementById('tplSenderName').value.trim(),
+  };
+
+  if (!entry.company) {
+    alert('会社名・事務所名を入力してください');
+    return;
+  }
+
+  const list = loadSenders();
+  if (editId) {
+    const idx = list.findIndex(s => s.id === editId);
+    if (idx >= 0) list[idx] = entry;
+  } else {
+    list.push(entry);
+    // 初回登録ならデフォルトに設定
+    if (list.length === 1) setDefaultSenderId(entry.id);
+  }
+  saveSenders(list);
+  clearSenderForm();
+  renderSenders();
+  showToast('送付元テンプレートを保存しました');
+}
+
+function editSender(id) {
+  const list = loadSenders();
+  const s = list.find(x => x.id === id);
+  if (!s) return;
+
+  document.getElementById('editSenderId').value = s.id;
+  document.getElementById('tplName').value = s.tplName || '';
+  document.getElementById('tplCompany').value = s.company || '';
+  document.getElementById('tplAddress').value = s.address || '';
+  document.getElementById('tplTel').value = s.tel || '';
+  document.getElementById('tplFax').value = s.fax || '';
+  document.getElementById('tplSenderName').value = s.senderName || '';
+  document.getElementById('senderFormDetails').open = true;
+}
+
+function deleteSender(id) {
+  if (!confirm('この送付元テンプレートを削除しますか？')) return;
+  let list = loadSenders();
+  list = list.filter(s => s.id !== id);
+  saveSenders(list);
+  if (getDefaultSenderId() === id) {
+    setDefaultSenderId(list.length > 0 ? list[0].id : '');
+  }
+  renderSenders();
+  showToast('削除しました');
+}
+
+function setDefault(id) {
+  setDefaultSenderId(id);
+  renderSenders();
+  showToast('デフォルトに設定しました');
+}
+
+function clearSenderForm() {
+  document.getElementById('editSenderId').value = '';
+  document.getElementById('tplName').value = '';
+  document.getElementById('tplCompany').value = '';
+  document.getElementById('tplAddress').value = '';
+  document.getElementById('tplTel').value = '';
+  document.getElementById('tplFax').value = '';
+  document.getElementById('tplSenderName').value = '';
+  document.getElementById('senderFormDetails').open = false;
+}
+
+function cancelSenderEdit() {
+  clearSenderForm();
+}
+
+// === Document Parts ===
+function renderParts() {
+  const parts = loadParts();
+  const container = document.getElementById('partsGrid');
+  container.innerHTML = parts.map((p, i) => `
+    <div class="part-tag">
+      ${esc(p)}
+      <button class="remove-part" onclick="removePart(${i})" title="削除">×</button>
+    </div>
+  `).join('');
+}
+
+function addPart() {
+  const input = document.getElementById('newPartName');
+  const name = input.value.trim();
+  if (!name) return;
+
+  const parts = loadParts();
+  if (parts.includes(name)) {
+    alert('同じ名前のパーツが既に登録されています');
+    return;
+  }
+  parts.push(name);
+  saveParts(parts);
+  input.value = '';
+  renderParts();
+  showToast(`「${name}」を追加しました`);
+}
+
+function removePart(idx) {
+  const parts = loadParts();
+  const name = parts[idx];
+  if (!confirm(`「${name}」を削除しますか？`)) return;
+  parts.splice(idx, 1);
+  saveParts(parts);
+  renderParts();
+  showToast('削除しました');
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// Init
+renderSenders();
+renderParts();
+</script>
+
+</body>
+</html>

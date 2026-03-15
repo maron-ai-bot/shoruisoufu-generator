@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>書類送付状 自動作成ツール</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Meiryo', sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .badge {
+      background: rgba(255,255,255,0.2);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+    }
+    .header-nav a {
+      color: rgba(255,255,255,0.85);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 6px 16px;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 6px;
+      transition: all 0.15s;
+    }
+    .header-nav a:hover { background: rgba(255,255,255,0.15); color: white; }
+
+    .container {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 24px;
+      padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+      min-height: calc(100vh - 60px);
+    }
+
+    /* === Left Panel === */
+    .form-panel {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      padding: 24px;
+      overflow-y: auto;
+      max-height: calc(100vh - 108px);
+    }
+    .form-section {
+      margin-bottom: 18px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 14px;
+    }
+    .form-section:last-child { border-bottom: none; }
+    .form-section-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #2563eb;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .form-section-title::before {
+      content: '';
+      width: 4px;
+      height: 16px;
+      background: #2563eb;
+      border-radius: 2px;
+    }
+    .form-group { margin-bottom: 10px; }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 4px;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    }
+    .form-group textarea { resize: vertical; min-height: 50px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* Sender template selector */
+    .sender-select-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .sender-select-row select { flex: 1; }
+    .sender-info-box {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #4a5568;
+    }
+    .sender-info-box .company-name { font-weight: 700; color: #1a202c; }
+
+    /* Document parts (block selector) */
+    .doc-blocks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .doc-block {
+      padding: 7px 14px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+      background: white;
+    }
+    .doc-block:hover { border-color: #93b4f5; background: #f0f4ff; }
+    .doc-block.selected {
+      background: #2563eb;
+      color: white;
+      border-color: #2563eb;
+    }
+
+    /* Selected docs with qty */
+    .selected-docs { display: flex; flex-direction: column; gap: 4px; }
+    .selected-doc-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: #eff6ff;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .selected-doc-row .doc-name { flex: 1; }
+    .selected-doc-row input {
+      width: 48px;
+      padding: 3px 6px;
+      border: 1px solid #bfdbfe;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 13px;
+    }
+    .selected-doc-row .qty-label { font-size: 12px; color: #718096; }
+    .selected-doc-row .remove-btn {
+      width: 20px; height: 20px;
+      border: none; background: #cbd5e0; color: white;
+      border-radius: 50%; cursor: pointer; font-size: 12px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .selected-doc-row .remove-btn:hover { background: #ef4444; }
+
+    /* Actions */
+    .actions { display: flex; gap: 10px; margin-top: 16px; }
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-secondary { background: #e2e8f0; color: #4a5568; }
+    .btn-secondary:hover { background: #cbd5e0; }
+
+    /* === Right Panel (Preview) === */
+    .preview-panel {
+      background: #e2e8f0;
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-y: auto;
+      max-height: calc(100vh - 108px);
+    }
+    .preview-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #718096;
+      margin-bottom: 12px;
+      align-self: flex-start;
+    }
+
+    /* A4 paper simulation: fixed aspect ratio container */
+    .a4-wrapper {
+      width: 100%;
+      max-width: 595px; /* A4 at 72dpi */
+      aspect-ratio: 210 / 297;
+      position: relative;
+      overflow: hidden;
+    }
+    .preview-paper {
+      background: white;
+      width: 595px;
+      height: 842px;
+      padding: 56px 52px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      font-family: 'Hiragino Mincho ProN', 'Noto Serif JP', 'Yu Mincho', serif;
+      font-size: 14px;
+      line-height: 1.8;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: top left;
+    }
+    .preview-paper .date-line { text-align: right; margin-bottom: 20px; }
+    .preview-paper .recipient-block { margin-bottom: 20px; }
+    .preview-paper .recipient-name { font-size: 15px; }
+    .preview-paper .sender-block { text-align: right; margin-bottom: 24px; }
+    .preview-paper .title-line {
+      text-align: center;
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      letter-spacing: 8px;
+    }
+    .preview-paper .greeting { margin-bottom: 6px; }
+    .preview-paper .body-text { margin-bottom: 16px; text-indent: 1em; }
+    .preview-paper .closing { text-align: right; margin-top: 12px; }
+    .preview-paper .record-title { text-align: center; font-weight: 700; margin-bottom: 8px; }
+    .preview-paper .doc-table {
+      width: 80%;
+      margin: 0 auto 16px;
+      border-collapse: collapse;
+    }
+    .preview-paper .doc-table td {
+      padding: 4px 10px;
+      border-bottom: 1px dotted #999;
+    }
+    .preview-paper .doc-table td:last-child { text-align: right; white-space: nowrap; }
+
+    @media (max-width: 900px) {
+      .container { grid-template-columns: 1fr; }
+      .preview-panel { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📄 書類送付状 自動作成ツール</h1>
+  <div class="header-right">
+    <span class="badge">ローカル動作・データ送信なし</span>
+    <div class="header-nav">
+      <a href="settings.html">⚙️ 設定</a>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Left: Form -->
+  <div class="form-panel">
+
+    <div class="form-section">
+      <div class="form-section-title">日付</div>
+      <div class="form-group">
+        <label>送付日</label>
+        <input type="date" id="sendDate">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">送付先</div>
+      <div class="form-group">
+        <label>会社名・事務所名</label>
+        <input type="text" id="recipientCompany" placeholder="例：株式会社〇〇">
+      </div>
+      <div class="form-group">
+        <label>部署名（任意）</label>
+        <input type="text" id="recipientDept" placeholder="例：総務部">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>担当者名</label>
+          <input type="text" id="recipientName" placeholder="例：山田 太郎">
+        </div>
+        <div class="form-group">
+          <label>敬称</label>
+          <select id="recipientTitle">
+            <option value="様">様</option>
+            <option value="御中">御中</option>
+            <option value="先生">先生</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">送付元</div>
+      <div class="sender-select-row">
+        <select id="senderSelect" onchange="onSenderSelect()">
+          <option value="">-- 送付元を選択 --</option>
+        </select>
+      </div>
+      <div class="sender-info-box" id="senderInfoBox">
+        <span style="color:#aaa;">設定ページで送付元テンプレートを登録してください</span>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">送付書類を選択</div>
+      <div class="doc-blocks" id="docBlocks">
+        <!-- JS で生成 -->
+      </div>
+      <div class="selected-docs" id="selectedDocs">
+        <!-- 選択済みリスト -->
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">備考（任意）</div>
+      <div class="form-group">
+        <textarea id="remarks" placeholder="補足コメントがあれば入力"></textarea>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" onclick="downloadWord()">📥 Word出力</button>
+      <button class="btn btn-secondary" onclick="resetForm()">🔄 リセット</button>
+    </div>
+
+  </div>
+
+  <!-- Right: Preview -->
+  <div class="preview-panel">
+    <div class="preview-label">▼ リアルタイムプレビュー（A4）</div>
+    <div class="a4-wrapper" id="a4Wrapper">
+      <div class="preview-paper" id="previewPaper"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// === Storage keys (shared with settings.html) ===
+const SENDERS_KEY = 'soufujou_senders';
+const PARTS_KEY = 'soufujou_parts';
+const DEFAULT_SENDER_KEY = 'soufujou_default_sender';
+
+const DEFAULT_PARTS = [
+  '委任契約書', '委任状', '着手金請求書', '報酬金請求書',
+  '請求書', '領収書', '契約書（写し）', '裁判書類（写し）',
+  '職務上請求書', '納品書', '見積書', '通知書'
+];
+
+function loadSenders() {
+  const d = localStorage.getItem(SENDERS_KEY);
+  return d ? JSON.parse(d) : [];
+}
+function loadParts() {
+  const d = localStorage.getItem(PARTS_KEY);
+  if (!d) { localStorage.setItem(PARTS_KEY, JSON.stringify(DEFAULT_PARTS)); return [...DEFAULT_PARTS]; }
+  return JSON.parse(d);
+}
+function getDefaultSenderId() { return localStorage.getItem(DEFAULT_SENDER_KEY) || ''; }
+
+// === State ===
+let selectedSender = null;
+let selectedDocList = []; // [{name, qty}]
+
+// === Init ===
+function init() {
+  initDate();
+  loadSenderSelect();
+  buildDocBlocks();
+  updatePreview();
+
+  // Listen to all inputs
+  document.querySelectorAll('#recipientCompany, #recipientDept, #recipientName, #recipientTitle, #remarks').forEach(el => {
+    el.addEventListener('input', updatePreview);
+    el.addEventListener('change', updatePreview);
+  });
+  document.getElementById('sendDate').addEventListener('change', updatePreview);
+}
+
+function initDate() {
+  const t = new Date();
+  document.getElementById('sendDate').value =
+    `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+}
+
+// === Sender ===
+function loadSenderSelect() {
+  const sel = document.getElementById('senderSelect');
+  const senders = loadSenders();
+  const defaultId = getDefaultSenderId();
+
+  sel.innerHTML = '<option value="">-- 送付元を選択 --</option>';
+  senders.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.tplName || s.company;
+    sel.appendChild(opt);
+  });
+
+  // Auto-select default
+  if (defaultId) {
+    sel.value = defaultId;
+    onSenderSelect();
+  }
+}
+
+function onSenderSelect() {
+  const id = document.getElementById('senderSelect').value;
+  const senders = loadSenders();
+  selectedSender = senders.find(s => s.id === id) || null;
+
+  const box = document.getElementById('senderInfoBox');
+  if (selectedSender) {
+    let html = `<div class="company-name">${esc(selectedSender.company)}</div>`;
+    if (selectedSender.address) html += `<div>${esc(selectedSender.address)}</div>`;
+    let contact = '';
+    if (selectedSender.tel) contact += `TEL: ${esc(selectedSender.tel)}`;
+    if (selectedSender.fax) contact += `　FAX: ${esc(selectedSender.fax)}`;
+    if (contact) html += `<div>${contact}</div>`;
+    if (selectedSender.senderName) html += `<div>${esc(selectedSender.senderName)}</div>`;
+    box.innerHTML = html;
+  } else {
+    box.innerHTML = '<span style="color:#aaa;">設定ページで送付元テンプレートを登録してください</span>';
+  }
+  updatePreview();
+}
+
+// === Document blocks ===
+function buildDocBlocks() {
+  const parts = loadParts();
+  const container = document.getElementById('docBlocks');
+  container.innerHTML = '';
+  parts.forEach(name => {
+    const div = document.createElement('div');
+    div.className = 'doc-block';
+    div.textContent = name;
+    div.dataset.name = name;
+    div.addEventListener('click', () => toggleDoc(name, div));
+    container.appendChild(div);
+  });
+}
+
+function toggleDoc(name, el) {
+  const idx = selectedDocList.findIndex(d => d.name === name);
+  if (idx >= 0) {
+    // Deselect
+    selectedDocList.splice(idx, 1);
+    el.classList.remove('selected');
+  } else {
+    // Select
+    selectedDocList.push({ name, qty: 1 });
+    el.classList.add('selected');
+  }
+  renderSelectedDocs();
+  updatePreview();
+}
+
+function renderSelectedDocs() {
+  const container = document.getElementById('selectedDocs');
+  if (selectedDocList.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = selectedDocList.map((d, i) => `
+    <div class="selected-doc-row">
+      <span class="doc-name">${esc(d.name)}</span>
+      <input type="number" value="${d.qty}" min="1" onchange="updateDocQty(${i}, this.value)">
+      <span class="qty-label">部</span>
+      <button class="remove-btn" onclick="removeDoc(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function updateDocQty(idx, val) {
+  selectedDocList[idx].qty = Math.max(1, parseInt(val) || 1);
+  updatePreview();
+}
+
+function removeDoc(idx) {
+  const name = selectedDocList[idx].name;
+  selectedDocList.splice(idx, 1);
+  // Un-highlight the block
+  document.querySelectorAll('.doc-block').forEach(b => {
+    if (b.dataset.name === name) b.classList.remove('selected');
+  });
+  renderSelectedDocs();
+  updatePreview();
+}
+
+// === Format date ===
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const reiwa = d.getFullYear() - 2018;
+  return `令和${reiwa}年${d.getMonth()+1}月${d.getDate()}日`;
+}
+
+// === Escape HTML ===
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// === Update preview with auto-scale ===
+function updatePreview() {
+  const date = document.getElementById('sendDate').value;
+  const recipientCompany = document.getElementById('recipientCompany').value;
+  const recipientDept = document.getElementById('recipientDept').value;
+  const recipientName = document.getElementById('recipientName').value;
+  const recipientTitle = document.getElementById('recipientTitle').value;
+  const remarks = document.getElementById('remarks').value;
+
+  // Recipient
+  let recipientHtml = '';
+  if (recipientCompany) recipientHtml += `<div>${esc(recipientCompany)}</div>`;
+  if (recipientDept) recipientHtml += `<div>${esc(recipientDept)}</div>`;
+  if (recipientName) {
+    recipientHtml += `<div class="recipient-name">${esc(recipientName)}　${esc(recipientTitle)}</div>`;
+  } else if (recipientCompany && recipientTitle === '御中') {
+    recipientHtml = '';
+    if (recipientDept) {
+      recipientHtml = `<div>${esc(recipientCompany)}</div><div class="recipient-name">${esc(recipientDept)}　御中</div>`;
+    } else {
+      recipientHtml = `<div class="recipient-name">${esc(recipientCompany)}　御中</div>`;
+    }
+  }
+
+  // Sender
+  let senderHtml = '';
+  if (selectedSender) {
+    senderHtml += `<div>${esc(selectedSender.company)}</div>`;
+    if (selectedSender.address) senderHtml += `<div style="font-size:11px;">${esc(selectedSender.address)}</div>`;
+    let contact = '';
+    if (selectedSender.tel) contact += `TEL: ${esc(selectedSender.tel)}`;
+    if (selectedSender.fax) contact += `　FAX: ${esc(selectedSender.fax)}`;
+    if (contact) senderHtml += `<div style="font-size:11px;">${contact}</div>`;
+    if (selectedSender.senderName) senderHtml += `<div style="margin-top:2px;">${esc(selectedSender.senderName)}</div>`;
+  }
+
+  // Doc table
+  let docTableHtml = '';
+  if (selectedDocList.length > 0) {
+    docTableHtml = '<table class="doc-table">';
+    selectedDocList.forEach(d => {
+      docTableHtml += `<tr><td>${esc(d.name)}</td><td>${d.qty}部</td></tr>`;
+    });
+    docTableHtml += '</table>';
+  }
+
+  // Remarks
+  let remarksHtml = '';
+  if (remarks.trim()) {
+    remarksHtml = `<div style="margin-top:12px; padding:6px 10px; border-left:3px solid #ccc; font-size:12px; color:#555;">
+      ${esc(remarks).replace(/\n/g, '<br>')}
+    </div>`;
+  }
+
+  const paper = document.getElementById('previewPaper');
+  paper.innerHTML = `
+    <div class="date-line">${formatDate(date)}</div>
+    <div class="recipient-block">${recipientHtml || '<div style="color:#aaa;">（送付先を入力）</div>'}</div>
+    <div class="sender-block">${senderHtml || '<div style="color:#aaa;">（送付元を選択）</div>'}</div>
+    <div class="title-line">書 類 送 付 の ご 案 内</div>
+    <div class="greeting">拝啓　時下ますますご清栄のこととお慶び申し上げます。</div>
+    <div class="body-text">下記の書類をお送りいたしますので、ご査収のほどよろしくお願い申し上げます。</div>
+    <div class="closing">敬具</div>
+    <div class="record-title" style="margin-top:20px;">記</div>
+    ${docTableHtml || '<div style="text-align:center; color:#aaa; margin:12px 0;">（書類パーツを選択）</div>'}
+    <div style="text-align:center; margin-top:16px;">以上</div>
+    ${remarksHtml}
+  `;
+
+  // Auto-scale to fit A4 wrapper
+  autoScalePaper();
+}
+
+function autoScalePaper() {
+  const wrapper = document.getElementById('a4Wrapper');
+  const paper = document.getElementById('previewPaper');
+  const wrapperWidth = wrapper.clientWidth;
+  const scaleX = wrapperWidth / 595;
+
+  // Check if content overflows the 842px height
+  const contentHeight = paper.scrollHeight;
+  let scaleY = 1;
+  if (contentHeight > 842) {
+    scaleY = 842 / contentHeight;
+  }
+
+  const scale = Math.min(scaleX, scaleY * scaleX);
+  paper.style.transform = `scale(${scale})`;
+
+  // Adjust wrapper height to match scaled paper
+  const effectiveHeight = (contentHeight > 842 ? 842 : contentHeight) * scaleX;
+  // Keep aspect ratio
+  wrapper.style.height = `${842 * scaleX}px`;
+}
+
+window.addEventListener('resize', autoScalePaper);
+
+// === Reset ===
+function resetForm() {
+  document.getElementById('recipientCompany').value = '';
+  document.getElementById('recipientDept').value = '';
+  document.getElementById('recipientName').value = '';
+  document.getElementById('recipientTitle').value = '様';
+  document.getElementById('remarks').value = '';
+  selectedDocList = [];
+  document.querySelectorAll('.doc-block.selected').forEach(b => b.classList.remove('selected'));
+  renderSelectedDocs();
+  initDate();
+  updatePreview();
+}
+
+// === Word Download (HTML-based .doc) ===
+function downloadWord() {
+  const date = document.getElementById('sendDate').value;
+  const recipientCompany = document.getElementById('recipientCompany').value;
+  const recipientDept = document.getElementById('recipientDept').value;
+  const recipientName = document.getElementById('recipientName').value;
+  const recipientTitle = document.getElementById('recipientTitle').value;
+  const remarks = document.getElementById('remarks').value;
+
+  // Build recipient
+  let recipientLines = [];
+  if (recipientCompany) recipientLines.push(esc(recipientCompany));
+  if (recipientDept) recipientLines.push(esc(recipientDept));
+  if (recipientName) {
+    recipientLines.push(`<span style="font-size:14pt">${esc(recipientName)}　${esc(recipientTitle)}</span>`);
+  } else if (recipientCompany && recipientTitle === '御中') {
+    if (recipientDept) {
+      recipientLines = [esc(recipientCompany), `<span style="font-size:14pt">${esc(recipientDept)}　御中</span>`];
+    } else {
+      recipientLines = [`<span style="font-size:14pt">${esc(recipientCompany)}　御中</span>`];
+    }
+  }
+
+  // Build sender
+  let senderLines = [];
+  if (selectedSender) {
+    senderLines.push(esc(selectedSender.company));
+    if (selectedSender.address) senderLines.push(`<span style="font-size:10pt">${esc(selectedSender.address)}</span>`);
+    let contact = '';
+    if (selectedSender.tel) contact += `TEL: ${esc(selectedSender.tel)}`;
+    if (selectedSender.fax) contact += `　FAX: ${esc(selectedSender.fax)}`;
+    if (contact) senderLines.push(`<span style="font-size:10pt">${contact}</span>`);
+    if (selectedSender.senderName) senderLines.push(esc(selectedSender.senderName));
+  }
+
+  // Build doc rows
+  let docRows = '';
+  if (selectedDocList.length > 0) {
+    selectedDocList.forEach(d => {
+      docRows += `<tr><td style="padding:4px 16px; border-bottom:1px dotted #999;">${esc(d.name)}</td>
+        <td style="padding:4px 16px; border-bottom:1px dotted #999; text-align:right;">${d.qty}部</td></tr>`;
+    });
+  }
+
+  // Determine font sizes - auto-shrink if many docs
+  const docCount = selectedDocList.length;
+  let baseFontSize = '12pt';
+  let titleFontSize = '16pt';
+  let lineHeight = '2.0';
+  if (docCount > 8) {
+    baseFontSize = '10.5pt';
+    titleFontSize = '14pt';
+    lineHeight = '1.6';
+  } else if (docCount > 5) {
+    baseFontSize = '11pt';
+    titleFontSize = '15pt';
+    lineHeight = '1.8';
+  }
+
+  // Remarks
+  let remarksHtml = '';
+  if (remarks.trim()) {
+    remarksHtml = `<p style="margin-top:16px; padding:6px 12px; border-left:3px solid #ccc; font-size:10pt; color:#555;">
+      ${esc(remarks).replace(/\n/g, '<br>')}</p>`;
+  }
+
+  const html = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 25mm 25mm 25mm 25mm; }
+  body {
+    font-family: 'ＭＳ 明朝', 'Yu Mincho', serif;
+    font-size: ${baseFontSize};
+    line-height: ${lineHeight};
+    color: #000;
+  }
+  table { border-collapse: collapse; }
+</style>
+</head>
+<body>
+  <p style="text-align:right;">${formatDate(date)}</p>
+  <br>
+  ${recipientLines.map(l => `<p>${l}</p>`).join('\n')}
+  <br>
+  ${senderLines.map(l => `<p style="text-align:right;">${l}</p>`).join('\n')}
+  <br>
+  <p style="text-align:center; font-size:${titleFontSize}; font-weight:bold; letter-spacing:6px;">書 類 送 付 の ご 案 内</p>
+  <br>
+  <p>拝啓　時下ますますご清栄のこととお慶び申し上げます。</p>
+  <p style="text-indent:1em;">下記の書類をお送りいたしますので、ご査収のほどよろしくお願い申し上げます。</p>
+  <p style="text-align:right;">敬具</p>
+  <br>
+  <p style="text-align:center; font-weight:bold; font-size:14pt;">記</p>
+  <br>
+  ${docRows ? `<table style="margin:0 auto;"><tbody>${docRows}</tbody></table>` : ''}
+  <br>
+  <p style="text-align:center;">以上</p>
+  ${remarksHtml}
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `書類送付状_${recipientCompany || '宛先未入力'}_${formatDate(date)}.doc`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Init
+init();
+</script>
+
+</body>
+</html>
